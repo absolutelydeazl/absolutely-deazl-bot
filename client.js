@@ -11,9 +11,12 @@ import cron from 'node-cron'
 import extra from './lib/listeners-extra.js'
 import { models, structure } from './lib/models.js'
 import system from './lib/adapter.js'
+import { fetchLatestBaileysVersion } from 'baileys'
 
 const connect = async () => {
    try {
+      const { version } = await fetchLatestBaileysVersion()
+
       const client = new Client({
          plugsdir: 'plugins',
          online: true,
@@ -26,8 +29,7 @@ const connect = async () => {
          presence: true, // Set to 'true' if you want to see the bot typing or recording
          pairing: {
             state: Config.pairing.state,
-            number: String(Config.pairing.number),
-            code: Config.pairing.code || 'NEOXRBOT'
+            number: String(Config.pairing.number)
          },
          create_session: {
             type: system.session,
@@ -38,7 +40,7 @@ const connect = async () => {
          debug: false // Set to 'true' if you want to see how this module works :v
       }, {
          // This is the Baileys connection options section
-         version: Config.pairing.version, // To see the latest version : https://wppconnect.io/whatsapp-versions/
+         version,
          browser: Config.pairing.browser,
          shouldIgnoreJid: jid => {
             return /(newsletter|bot)/.test(jid)

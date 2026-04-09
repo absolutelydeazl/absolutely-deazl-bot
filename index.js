@@ -89,7 +89,7 @@ function start() {
    })
    .on('exit', code => {
       console.error('Exited with code:', code)
-      start()
+      setTimeout(start, 5000)
    })
 }
 
