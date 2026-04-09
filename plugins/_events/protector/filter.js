@@ -1,3 +1,7 @@
+const VIOLATION_LIMIT = 20
+const WARN_LIMIT = 5
+const LOCK_DURATION = 5 * 60 * 1000 // 5 minutes
+
 export const run = {
    async: async (m, {
       client,
@@ -9,37 +13,65 @@ export const run = {
       Utils
    }) => {
       try {
-         if (groupSet.filter && !isAdmin && isBotAdmin && !m.fromMe) {
-            const toxic = setting.toxic || []
-            if (body && (new RegExp('\\b' + toxic.join('\\b|\\b') + '\\b')).test(body.toLowerCase())) {
-               if (!groupSet.member[m.sender]) groupSet.member[m.sender] = { warning: 0 }
-               groupSet.member[m.sender].warning = (groupSet.member[m.sender].warning || 0) + 1
-               const warning = groupSet.member[m.sender].warning
+         if (!groupSet.filter || isAdmin || !isBotAdmin || m.fromMe) return
 
-               await client.reply(m.chat, `乂  *W A R N I N G*\n\nYou got warning : [ ${Math.min(warning, 5)} / 5 ]\nYour message has been deleted.`, m)
+         const toxic = setting.toxic || []
+         if (!body || !toxic.length) return
 
-               await client.sendMessage(m.chat, {
-                  delete: {
-                     remoteJid: m.chat,
-                     fromMe: isBotAdmin ? false : true,
-                     id: m.key.id,
-                     participant: m.sender
-                  }
-               })
+         const detected = new RegExp('\\b(' + toxic.join('|') + ')\\b', 'i').test(body)
+         if (!detected) return
 
-               groupSet.violationCount = (groupSet.violationCount || 0) + 1
-               if (groupSet.violationCount >= 15) {
-                  groupSet.violationCount = 0
-                  await client.groupSettingUpdate(m.chat, 'announcement')
-                  await client.sendMessage(m.chat, { text: '⚠️ This group has been locked for 5 minutes due to repeated violations.' })
-                  setTimeout(async () => {
-                     try {
-                        await client.groupSettingUpdate(m.chat, 'not_announcement')
-                        await client.sendMessage(m.chat, { text: '✅ Group is now open again.' })
-                     } catch (e) {}
-                  }, 5 * 60 * 1000)
-               }
+         // Delete the message — no kick
+         await client.sendMessage(m.chat, {
+            delete: {
+               remoteJid: m.chat,
+               fromMe: isBotAdmin ? false : true,
+               id: m.key.id,
+               participant: m.sender
             }
+         })
+
+         // Increment personal warning counter
+         if (!groupSet.member[m.sender]) groupSet.member[m.sender] = { warning: 0 }
+         groupSet.member[m.sender].warning = (groupSet.member[m.sender].warning || 0) + 1
+         const personalWarn = Math.min(groupSet.member[m.sender].warning, WARN_LIMIT)
+
+         // Increment shared group violation counter
+         groupSet.violationCount = (groupSet.violationCount || 0) + 1
+         const groupCount = groupSet.violationCount
+
+         // Send a beautiful warning message
+         await client.sendMessage(m.chat, {
+            text: [
+               '🤬 *BAD WORD DETECTED*',
+               '',
+               '━━━━━━━━━━━━━━━━━━━━━━',
+               `⚠️ @${m.sender.split('@')[0]}, your message has been deleted.`,
+               `🚨 Personal warnings: *${personalWarn} / ${WARN_LIMIT}*`,
+               `📊 Group violations: *${groupCount} / ${VIOLATION_LIMIT}*`,
+               '━━━━━━━━━━━━━━━━━━━━━━',
+               'Keep the conversation clean! 💬'
+            ].join('\n'),
+            mentions: [m.sender]
+         })
+
+         // Lock group if violations hit the limit
+         if (groupCount >= VIOLATION_LIMIT && !groupSet.groupLocked) {
+            groupSet.violationCount = 0
+            groupSet.groupLocked = true
+            await client.groupSettingUpdate(m.chat, 'announcement')
+            await client.sendMessage(m.chat, {
+               text: '🔒 *The group is closed for 5 minutes due to excessive violations (20/20). Let\'s keep it clean! ⏳*'
+            })
+            setTimeout(async () => {
+               try {
+                  groupSet.groupLocked = false
+                  await client.groupSettingUpdate(m.chat, 'not_announcement')
+                  await client.sendMessage(m.chat, {
+                     text: '🔓 *The group is now open again. Violation counter has been reset. Stay respectful! ✅*'
+                  })
+               } catch (e) {}
+            }, LOCK_DURATION)
          }
       } catch (e) {
          return client.reply(m.chat, Utils.jsonFormat(e), m)
