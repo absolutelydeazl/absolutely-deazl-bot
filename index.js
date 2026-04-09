@@ -6,12 +6,13 @@ import path from 'path'
 import CFonts from 'cfonts'
 import { fileURLToPath } from 'url'
 import { Utils } from '@neoxr/wb'
-import http from 'http'
+import express from 'express'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const TEMP_DIR = path.resolve('./temp')
+const PAIRING_FILE = path.resolve('./pairing_code.txt')
 
 const ensureTempDir = async () => {
    try {
@@ -46,26 +47,50 @@ const cleanTemp = async () => {
 const startAutoClean = async () => {
    await ensureTempDir()
    cleanTemp()
-   setInterval(cleanTemp, 60 * 60 * 1000) // 1 hours
+   setInterval(cleanTemp, 60 * 60 * 1000)
 }
 
 let p = null
 function start() {
    const args = [path.join(__dirname, 'client.js'), ...process.argv.slice(2)]
    p = spawn(process.argv[0], args, {
-      stdio: ['inherit', 'inherit', 'inherit', 'ipc']
+      stdio: ['inherit', 'pipe', 'pipe', 'ipc']
    })
-      .on('message', data => {
-         if (data === 'reset') {
-            console.log('Restarting...')
-            p.kill()
-            p = null
-         }
-      })
-      .on('exit', code => {
-         console.error('Exited with code:', code)
-         start()
-      })
+
+   const pairingPattern = /([A-Z0-9]{4}-[A-Z0-9]{4})/
+
+   const handleOutput = async (data) => {
+      const text = data.toString()
+      process.stdout.write(text)
+
+      try {
+         await fs.appendFile('./bot_output.log', text, 'utf-8')
+      } catch {}
+
+      const match = text.match(pairingPattern)
+      if (match) {
+         const code = match[1]
+         console.log(`\n>>> PAIRING CODE: ${code} <<<\n`)
+         try {
+            await fs.writeFile(PAIRING_FILE, code, 'utf-8')
+         } catch {}
+      }
+   }
+
+   p.stdout.on('data', handleOutput)
+   p.stderr.on('data', handleOutput)
+
+   p.on('message', data => {
+      if (data === 'reset') {
+         console.log('Restarting...')
+         p.kill()
+         p = null
+      }
+   })
+   .on('exit', code => {
+      console.error('Exited with code:', code)
+      start()
+   })
 }
 
 console.clear()
@@ -92,7 +117,17 @@ CFonts.say('Github : https://github.com/neoxr/neoxr-bot', {
 
 start()
 startAutoClean()
-http.createServer((req, res) => {
-   res.writeHead(200)
-   res.end('Absolutely Deazl Bot is running.')
-}).listen(8080, () => console.log('Keep-alive server listening on port 8080'))
+
+const app = express()
+app.get('/', (req, res) => {
+   res.send('Absolutely Deazl Bot is running.')
+})
+app.get('/pairing', async (req, res) => {
+   try {
+      const code = await fs.readFile(PAIRING_FILE, 'utf-8')
+      res.send(`Pairing Code: ${code.trim()}`)
+   } catch {
+      res.send('Pairing code not yet generated. Please wait a moment and refresh.')
+   }
+})
+app.listen(8080, () => console.log('Keep-alive server (Express) listening on port 8080'))

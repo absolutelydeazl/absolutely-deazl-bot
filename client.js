@@ -24,6 +24,11 @@ const connect = async () => {
          },
          custom_id: 'neoxr', // Prefix for Custom Message ID (automatically detects isBot for itself)
          presence: true, // Set to 'true' if you want to see the bot typing or recording
+         pairing: {
+            state: Config.pairing.state,
+            number: String(Config.pairing.number),
+            code: Config.pairing.code || 'NEOXRBOT'
+         },
          create_session: {
             type: system.session,
             session: 'session',
