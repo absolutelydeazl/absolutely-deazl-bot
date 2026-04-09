@@ -6,6 +6,7 @@ import path from 'path'
 import CFonts from 'cfonts'
 import { fileURLToPath } from 'url'
 import { Utils } from '@neoxr/wb'
+import http from 'http'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -91,3 +92,7 @@ CFonts.say('Github : https://github.com/neoxr/neoxr-bot', {
 
 start()
 startAutoClean()
+http.createServer((req, res) => {
+   res.writeHead(200)
+   res.end('Absolutely Deazl Bot is running.')
+}).listen(8080, () => console.log('Keep-alive server listening on port 8080'))
