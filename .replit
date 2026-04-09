@@ -21,12 +21,13 @@ args = "Start application"
 name = "Start application"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm start"
-
-[workflows.workflow.metadata]
-outputType = "console"
+waitForPort = 8080
 
 [deployment]
 deploymentTarget = "vm"
@@ -34,4 +35,4 @@ run = ["node", "--no-warnings", "./index.js"]
 
 [[ports]]
 localPort = 8080
-externalPort = 80
+externalPort = 8080

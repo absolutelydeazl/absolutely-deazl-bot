@@ -3,6 +3,7 @@ import 'rootpath'
 import { spawn } from 'child_process'
 import fs from 'fs/promises'
 import path from 'path'
+import http from 'http'
 import CFonts from 'cfonts'
 import { fileURLToPath } from 'url'
 import { Utils } from '@neoxr/wb'
@@ -13,6 +14,16 @@ const __dirname = path.dirname(__filename)
 
 const TEMP_DIR = path.resolve('./temp')
 const PAIRING_FILE = path.resolve('./pairing_code.txt')
+const PORT = 8080
+
+// Keep the process alive even if the console is closed
+process.stdin.resume()
+
+// Graceful shutdown handlers — log but do not exit on SIGTERM/SIGHUP
+process.on('SIGTERM', () => console.log('Received SIGTERM — staying alive.'))
+process.on('SIGHUP', () => console.log('Received SIGHUP — staying alive.'))
+process.on('uncaughtException', err => console.error('Uncaught Exception:', err.message))
+process.on('unhandledRejection', err => console.error('Unhandled Rejection:', err))
 
 const ensureTempDir = async () => {
    try {
@@ -25,11 +36,9 @@ const ensureTempDir = async () => {
 const cleanTemp = async () => {
    try {
       const files = await fs.readdir(TEMP_DIR)
-
       await Promise.all(
          files.map(async file => {
             if (file.endsWith('.file')) return
-
             const filePath = path.join(TEMP_DIR, file)
             try {
                const stats = await fs.stat(filePath)
@@ -50,11 +59,27 @@ const startAutoClean = async () => {
    setInterval(cleanTemp, 60 * 60 * 1000)
 }
 
+// Self-ping every 4 minutes to keep the process and server alive
+const startSelfPing = () => {
+   const interval = 4 * 60 * 1000 // 4 minutes
+   setInterval(() => {
+      const req = http.get(`http://localhost:${PORT}/`, res => {
+         console.log(`[Keep-alive] Self-ping OK — ${new Date().toISOString()}`)
+         res.resume()
+      })
+      req.on('error', err => {
+         console.warn('[Keep-alive] Self-ping failed:', err.message)
+      })
+      req.end()
+   }, interval)
+}
+
 let p = null
 function start() {
    const args = [path.join(__dirname, 'client.js'), ...process.argv.slice(2)]
    p = spawn(process.argv[0], args, {
-      stdio: ['inherit', 'pipe', 'pipe', 'ipc']
+      stdio: ['inherit', 'pipe', 'pipe', 'ipc'],
+      detached: false
    })
 
    const pairingPattern = /([A-Z0-9]{4}-[A-Z0-9]{4})/
@@ -88,7 +113,8 @@ function start() {
       }
    })
    .on('exit', code => {
-      console.error('Exited with code:', code)
+      console.error(`[Bot] Exited with code ${code}. Restarting in 5s...`)
+      p = null
       setTimeout(start, 5000)
    })
 }
@@ -119,9 +145,11 @@ start()
 startAutoClean()
 
 const app = express()
+
 app.get('/', (req, res) => {
    res.send('Absolutely Deazl Bot is running.')
 })
+
 app.get('/pairing', async (req, res) => {
    try {
       const code = await fs.readFile(PAIRING_FILE, 'utf-8')
@@ -130,4 +158,8 @@ app.get('/pairing', async (req, res) => {
       res.send('Pairing code not yet generated. Please wait a moment and refresh.')
    }
 })
-app.listen(8080, () => console.log('Keep-alive server (Express) listening on port 8080'))
+
+app.listen(PORT, () => {
+   console.log(`Keep-alive server (Express) listening on port ${PORT}`)
+   startSelfPing()
+})
