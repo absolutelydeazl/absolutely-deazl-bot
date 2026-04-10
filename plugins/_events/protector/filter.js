@@ -2,6 +2,21 @@ const VIOLATION_LIMIT = 20
 const WARN_LIMIT = 5
 const LOCK_DURATION = 5 * 60 * 1000 // 5 minutes
 
+// Built-in Arabic bad words — always active
+const ARABIC_BAD_WORDS = [
+   'كسمك', 'متناك', 'عرص', 'خول', 'زاني', 'معرص', 'شرموطه', 'علق'
+]
+
+// Arabic-aware whole-word match using Unicode lookbehind/lookahead
+// Ensures "علق" matches alone but NOT when attached to other letters like "علقيوسف"
+const buildPattern = words => {
+   const escaped = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+   return new RegExp(
+      '(?<!\\p{L})(' + escaped.join('|') + ')(?!\\p{L})',
+      'iu'
+   )
+}
+
 export const run = {
    async: async (m, {
       client,
@@ -13,15 +28,22 @@ export const run = {
       Utils
    }) => {
       try {
-         if (!groupSet.filter || isAdmin || !isBotAdmin || m.fromMe) return
+         if (!groupSet.filter || !isBotAdmin || m.fromMe) return
 
-         const toxic = setting.toxic || []
-         if (!body || !toxic.length) return
+         // Admins are exempt unless the group is currently locked
+         // (in announcement mode only admins can post, so we still catch them)
+         if (isAdmin && !groupSet.groupLocked) return
 
-         const detected = new RegExp('\\b(' + toxic.join('|') + ')\\b', 'i').test(body)
-         if (!detected) return
+         // Combine database toxic list + built-in Arabic bad words
+         const configToxic = setting.toxic || []
+         const allToxic = [...new Set([...configToxic, ...ARABIC_BAD_WORDS])]
 
-         // Delete the message — no kick
+         if (!body || !allToxic.length) return
+
+         const pattern = buildPattern(allToxic)
+         if (!pattern.test(body)) return
+
+         // Delete the message — NO kick, never
          await client.sendMessage(m.chat, {
             delete: {
                remoteJid: m.chat,
@@ -40,35 +62,35 @@ export const run = {
          groupSet.violationCount = (groupSet.violationCount || 0) + 1
          const groupCount = groupSet.violationCount
 
-         // Send a beautiful warning message
+         // Arabic warning message
          await client.sendMessage(m.chat, {
             text: [
-               '🤬 *BAD WORD DETECTED*',
+               '⚠️ *تحذير | كلمة مسيئة*',
                '',
                '━━━━━━━━━━━━━━━━━━━━━━',
-               `⚠️ @${m.sender.split('@')[0]}, your message has been deleted.`,
-               `🚨 Personal warnings: *${personalWarn} / ${WARN_LIMIT}*`,
-               `📊 Group violations: *${groupCount} / ${VIOLATION_LIMIT}*`,
+               `🚫 @${m.sender.split('@')[0]}، تم حذف رسالتك لاحتوائها على ألفاظ مسيئة.`,
+               `🚨 تحذيراتك الشخصية: *${personalWarn} / ${WARN_LIMIT}*`,
+               `📊 مخالفات المجموعة: *${groupCount} / ${VIOLATION_LIMIT}*`,
                '━━━━━━━━━━━━━━━━━━━━━━',
-               'Keep the conversation clean! 💬'
+               'يرجى الالتزام بآداب الحديث واحترام الجميع! 🙏'
             ].join('\n'),
             mentions: [m.sender]
          })
 
-         // Lock group if violations hit the limit
+         // Lock group when violations hit the limit (no kick — only close group)
          if (groupCount >= VIOLATION_LIMIT && !groupSet.groupLocked) {
             groupSet.violationCount = 0
             groupSet.groupLocked = true
             await client.groupSettingUpdate(m.chat, 'announcement')
             await client.sendMessage(m.chat, {
-               text: '🔒 *The group is closed for 5 minutes due to excessive violations (20/20). Let\'s keep it clean! ⏳*'
+               text: '🔒 *تم إغلاق المجموعة لمدة 5 دقائق بسبب كثرة المخالفات (20/20). لنحافظ على النظافة! ⏳*'
             })
             setTimeout(async () => {
                try {
                   groupSet.groupLocked = false
                   await client.groupSettingUpdate(m.chat, 'not_announcement')
                   await client.sendMessage(m.chat, {
-                     text: '🔓 *The group is now open again. Violation counter has been reset. Stay respectful! ✅*'
+                     text: '🔓 *تم فتح المجموعة مجددًا. تم إعادة تعيين عداد المخالفات. حافظوا على الاحترام! ✅*'
                   })
                } catch (e) {}
             }, LOCK_DURATION)
