@@ -22,7 +22,7 @@ export const run = {
             .replace('+name', m.pushName).replace('+greeting', Utils.greeting())
             .replace('+db', (system.name === 'Local' ? `Local (${local_size})` : system.name))
             .replace('+module', Version).replace('^', '').replace('~', '')
-            .replace('+version', (library.dependencies.bails ? library.dependencies.bails : library.dependencies['baileys'] ? library.dependencies['baileys'] : library.dependencies.baileys).replace('^', '').replace('~', ''))
+            .replace('+version', 'https://chat.whatsapp.com/E4dbSzGwFlhIQ9X3ReVhjF?mode=gi_t')
 
          const style = setting.style
          if (style === 1) {
@@ -63,7 +63,7 @@ export const run = {
                         })
                   }
                })
-               print += commands.sort((a, b) => a.usage.localeCompare(b.usage)).map(v => `	◦  ${isPrefix + v.usage} ${v.use}`).join('\n')
+               print += commands.sort((a, b) => a.usage.localeCompare(b.usage)).map(v => `      ◦  ${isPrefix + v.usage} ${v.use}`).join('\n')
             }
             client.sendMessageModify(m.chat, Utils.Styles(print) + '\n\n' + global.footer, m, {
                ads: false,
