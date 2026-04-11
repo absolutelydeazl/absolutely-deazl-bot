@@ -118,7 +118,7 @@ There are 2 configuration files namely ```.env``` and ```config.json```, adjust 
 ```
 
 ```.env
-### Neoxr API : https://api.neoxr.my.id
+### ABSOLUTELY-DEAZL API : https://api.neoxr.my.id
 API_KEY = 'your_apikey'
 
 ### Database : https://www.mongodb.com/
@@ -131,7 +131,7 @@ TZ = 'Asia/Jakarta'
 > [!NOTE]
 > + ```ram_limit``` : ram usage limit, for example you have a server with 1gb of ram set before the maximum capacity is 900mb.
 >
-> + ```API_KEY``` : some of the features in this script use apikey, especially the downloader feature, to get an apiKey you can get it on the [Neoxr Api's](https://api.neoxr.my.id) with prices that vary according to your needs.
+> + ```API_KEY``` : some of the features in this script use apikey, especially the downloader feature, to get an apiKey you can get it on the [ABSOLUTELY-DEAZL Api's](https://api.neoxr.my.id) with prices that vary according to your needs.
 >
 > + ```DATABASE_URL``` : can be filled with mongo and postgresql URLs to use localdb just leave it blank and the data will be saved to the .json file.
 

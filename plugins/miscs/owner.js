@@ -10,7 +10,7 @@ export const run = {
          number: Config.owner,
          about: 'Owner & Creator'
       }], m, {
-         org: 'Neoxr Network',
+         org: 'ABSOLUTELY-DEAZL Network',
          website: 'https://api.neoxr.my.id',
          email: 'contact@neoxr.my.id'
       })

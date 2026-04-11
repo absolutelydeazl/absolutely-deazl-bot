@@ -120,7 +120,7 @@ export const run = {
                      buttons: [{
                         name: "cta_url",
                         buttonParamsJson: JSON.stringify({
-                           display_text: 'Neoxr API',
+                           display_text: 'ABSOLUTELY-DEAZL API',
                            url: 'https://api.neoxr.eu',
                            webview_presentation: null
                         })
