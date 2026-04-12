@@ -58,3 +58,4 @@ data.*
 config.json
 yarn.*
 package-lock.*
+.env
